@@ -97,7 +97,7 @@ class PDFManagerApp:
             return os.path.join(base_path, relative_path)
 
         icon_path = get_resource_path("simple_pdf_manager.ico")
-        if os.path.exists(icon_path):
+        if os.path.exists(icon_path) and sys.platform != "darwin":
             try:
                 self.root.iconbitmap(icon_path)
             except Exception:

@@ -1,0 +1,66 @@
+name: Build Executables
+
+on:
+  push:
+    branches: [ "master", "main" ]
+  pull_request:
+    branches: [ "master", "main" ]
+
+jobs:
+  build:
+    name: Build on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        # macos-14 runs on Apple Silicon (M1/M2/M3)
+        # windows-latest runs on Windows x64
+        os: [windows-latest, macos-14]
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.11"
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pyinstaller
+        pip install -r requirements.txt
+
+    - name: Build Windows Executable
+      if: matrix.os == 'windows-latest'
+      run: pyinstaller "simple_pdf_manager.spec" --noconfirm --clean
+
+    - name: Build Mac App Bundle (Apple Silicon)
+      if: matrix.os == 'macos-14'
+      run: |
+        pyinstaller "build_mac.spec" --noconfirm --clean
+        # Create a DMG file for easy Mac distribution
+        npm install -g create-dmg
+        create-dmg "dist/simple PDF Manager.app" "dist" || true
+        mv "dist/simple PDF Manager 1.0.0.dmg" "dist/simple_PDF_Manager_Mac_M_Series.dmg" || true
+
+    - name: Upload Windows Artifact
+      if: matrix.os == 'windows-latest'
+      uses: actions/upload-artifact@v4
+      with:
+        name: simple-PDF-Manager-Windows
+        path: dist/simple PDF Manager.exe
+
+    - name: Upload Mac Artifact (App Bundle)
+      if: matrix.os == 'macos-14'
+      uses: actions/upload-artifact@v4
+      with:
+        name: simple-PDF-Manager-Mac-App
+        path: dist/simple PDF Manager.app
+
+    - name: Upload Mac Artifact (DMG)
+      if: matrix.os == 'macos-14'
+      uses: actions/upload-artifact@v4
+      with:
+        name: simple-PDF-Manager-Mac-DMG
+        path: dist/*.dmg
