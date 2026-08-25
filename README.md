@@ -2,7 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python: 3.8+](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://www.python.org/)
-[![Platform: Windows](https://img.shields.io/badge/Platform-Windows-blue.svg)](https://microsoft.com/windows)
+[![Platform: Windows & macOS](https://img.shields.io/badge/Platform-Windows%20%7C%20macOS-blue.svg)](#-download)
 [![GUI: Tkinter](https://img.shields.io/badge/GUI-Tkinter-0078d4.svg)](https://docs.python.org/3/library/tkinter.html)
 [![PDF: pypdf](https://img.shields.io/badge/PDF-pypdf-ff6b35.svg)](https://pypdf.readthedocs.io/)
 [![Image: Pillow](https://img.shields.io/badge/Image-Pillow-669900.svg)](https://python-pillow.org/)
@@ -50,21 +50,23 @@ PPM, PGM, PBM, PCX, TGA, SGI, XBM, XPM, QOI
 
 ## 📦 Download
 
-Pre-built portable executables are available in the **`dist/`** folder:
+Pre-built portable applications are available in the **[GitHub Releases](https://github.com/filmfer/pdf_manager_gui/releases)** page or under **Actions -> Artifacts**.
 
-- **`simple PDF Manager.exe`** — Ready-to-run Windows executable (no Python needed)
+- **Windows:** Download `simple PDF Manager.exe`
+- **macOS (Apple Silicon M-Series):** Download the `.dmg` installer or the `.app` bundle
 
-Simply copy the `.exe` to any folder and double-click to launch.
+Simply download the version for your operating system and run it. No Python installation is required!
 
 ---
 
 ## 🚀 Quick Start
 
-### Using the Portable Executable (Windows)
+### Using the Portable Application
 
-1. Download `simple PDF Manager.exe`
-2. Double-click to run — no installation required
-3. Click any feature button and follow the on-screen dialogs
+1. Go to the **[Releases](https://github.com/filmfer/pdf_manager_gui/releases)** page and download the `.exe` (Windows) or `.dmg` (Mac).
+2. **Windows:** Double-click the `.exe` to run.
+3. **macOS:** Open the `.dmg` and drag the App to your Applications folder, then launch it.
+4. Click any feature button and follow the on-screen dialogs!
 
 ### Running from Source
 
@@ -151,7 +153,7 @@ langchain, etc.), keeping the final executable under ~35 MB.
 - **Imaging:** Pillow (image decoding, images → PDF)
 - **Rendering:** PyMuPDF / MuPDF (PDF pages → images)
 - **Architecture:** Object-oriented, class-based design with modal dialogs
-- **Cross-Platform:** Source runs on Windows, macOS, Linux (exe is Windows only)
+- **Cross-Platform:** Source runs on Windows, macOS, Linux (Standalone apps available for Windows and macOS M-Series)
 - **No Long Path Issues:** Uses standard library path handling
 
 ### System Requirements
