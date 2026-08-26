@@ -1,3 +1,5 @@
+<img width="2752" height="1536" alt="image" src="https://github.com/user-attachments/assets/8b3ee5a9-7d57-4dec-ae54-926cd37b59f9" />
+
 # simple PDF Manager
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
