@@ -792,9 +792,6 @@ def _run_cli():
         elif args.command == "split":
             n = PDFProcessor.split(args.input, args.output_dir)
             print(f"Split {n} page(s) -> {args.output_dir}")
-        elif args.command == "extract":
-            n = PDFProcessor.extract(args.input, args.output, args.start, args.end)
-            print(f"Extracted {n} page(s) -> {args.output}")
         elif args.command == "remove":
             pages_set = _parse_page_list(args.pages)
             n = PDFProcessor.remove(args.input, args.output, sorted(pages_set))
@@ -802,7 +799,7 @@ def _run_cli():
         elif args.command == "img2pdf":
             n = PDFProcessor.images_to_pdf(args.images, args.output)
             print(f"Created PDF from {n} image(s) -> {args.output}")
-                elif args.command == "pdf2img":
+        elif args.command == "pdf2img":
             end_page = args.end
             if end_page is None:
                 end_page = fitz.open(args.input).page_count
