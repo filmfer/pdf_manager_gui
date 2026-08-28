@@ -79,6 +79,134 @@ APP_NAME = "simple PDF Manager"
 AUTHOR = "Filipe Fernandes"
 AUTHOR_EMAIL = "filmfer@gmail.com"
 
+# ---------------------------------------------------------------------------
+# Core PDF processing logic (shared by GUI and CLI)
+# ---------------------------------------------------------------------------
+
+class PDFProcessor:
+    """Encapsulates all non-GUI PDF/image processing logic so that both the
+    Tkinter front-end and the new CLI front-end can share a single, tested
+    implementation."""
+
+    @staticmethod
+    def merge(input_files, output_file):
+        """Merge a list of PDF files into a single ``output_file``."""
+        writer = PdfWriter()
+        total_pages = 0
+        for pdf_file in input_files:
+            reader = PdfReader(pdf_file)
+            total_pages += len(reader.pages)
+            writer.append(reader)
+            reader.stream.close()
+        writer.write(output_file)
+        writer.stream.close()
+        return total_pages
+
+    @staticmethod
+    def split(input_file, output_dir):
+        """Split a PDF into individual single-page PDF files."""
+        reader = PdfReader(input_file)
+        base_name = Path(input_file).stem
+        count = 0
+        width = len(str(len(reader.pages)))
+        for i, page in enumerate(reader.pages, start=1):
+            writer = PdfWriter()
+            writer.append(page)
+            output_path = Path(output_dir) / f"{base_name}_page_{str(i).zfill(max(width, 2))}.pdf"
+            writer.write(str(output_path))
+            writer.stream.close()
+            count += 1
+        reader.stream.close()
+        return count
+
+    @staticmethod
+    def extract(input_file, output_file, start, end):
+        """Extract a page range (1-based) from a PDF to a new file."""
+        reader = PdfReader(input_file)
+        num_pages = len(reader.pages)
+        if not (1 <= start <= end <= num_pages):
+            raise ValueError(f"Invalid range. PDF has {num_pages} page(s).")
+        writer = PdfWriter()
+        writer.append(reader.pages[start - 1:end])
+        writer.write(output_file)
+        writer.stream.close()
+        reader.stream.close()
+        return end - start + 1
+
+    @staticmethod
+    def remove(input_file, output_file, pages_to_remove):
+        """Remove one or more pages (1-based) from a PDF and save to output."""
+        reader = PdfReader(input_file)
+        num_pages = len(reader.pages)
+        indices = set()
+        for p in pages_to_remove:
+            if p < 0:
+                p = num_pages + p + 1
+            if not (1 <= p <= num_pages):
+                raise ValueError(f"Page number {p} is out of range (1-{num_pages}).")
+            indices.add(p)
+
+        writer = PdfWriter()
+        count_removed = 0
+        for i, page in enumerate(reader.pages, start=1):
+            if i not in indices:
+                writer.append(page)
+            else:
+                count_removed += 1
+        writer.write(output_file)
+        writer.stream.close()
+        reader.stream.close()
+        return count_removed
+
+    @staticmethod
+    def images_to_pdf(image_files, output_file):
+        """Create a PDF from a list of image files."""
+        img_list = []
+        for img_path in image_files:
+            img = Image.open(img_path)
+            img_list.append(img)
+
+        if not img_list:
+            raise ValueError("No valid images found.")
+
+        first = img_list[0]
+        if first.mode in ("RGBA", "P"):
+            first = first.convert("RGB")
+        first.save(
+            output_file, "PDF", resolution=first.info.get("dpi", (72, 72))[0],
+            save_all=True, append_images=[i.convert("RGB") if i.mode in ("RGBA", "P") else i for i in img_list[1:]]
+        )
+        for img in img_list:
+            img.close()
+
+        return len(img_list)
+
+    @staticmethod
+    def pdf_to_images(input_file, output_dir, start, end, dpi, fmt):
+        """Export pages from a PDF to raster images."""
+        doc = fitz.open(input_file)
+        num_pages = doc.page_count
+        if start < 1:
+            start = 1
+        if end > num_pages:
+            end = num_pages
+        if not (1 <= start <= end <= num_pages):
+            doc.close()
+            raise ValueError(f"Invalid range. PDF has {num_pages} page(s).")
+
+        base = Path(input_file).stem
+        width = len(str(end))
+        count = 0
+        for page_num in range(start, end + 1):
+            page = doc[page_num - 1]
+            pix = page.get_pixmap(dpi=dpi, alpha=False)
+            img = Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
+            name = f"{base}_page_{str(page_num).zfill(max(width, 2))}{fmt}"
+            img.save(os.path.join(output_dir, name), format=EXPORT_IMAGE_EXTENSIONS[fmt])
+            count += 1
+        doc.close()
+        return count
+
 class PDFManagerApp:
     def __init__(self, root):
         self.root = root
@@ -605,8 +733,110 @@ class PDFManagerApp:
         dialog.grab_set()
 
 
+def _run_cli():
+    """Entry point for the command-line interface."""
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        prog="pdfmanager",
+        description=f"{APP_NAME} — command line interface.",
+        epilog=f"© 2026 {AUTHOR}  ({AUTHOR_EMAIL})",
+    )
+    sub = parser.add_subparsers(dest="command", required=True, metavar="<command>")
+
+    # --- merge ---
+    p_merge = sub.add_parser("merge", help="Merge two or more PDF files into one.")
+    p_merge.add_argument("files", nargs="+", metavar="FILE", help="Input PDF files in order.")
+    p_merge.add_argument("-o", "--output", required=True, metavar="FILE", help="Output merged PDF file.")
+
+    # --- split ---
+    p_split = sub.add_parser("split", help="Split a PDF into one file per page.")
+    p_split.add_argument("input", metavar="FILE", help="Input PDF file.")
+    p_split.add_argument("-o", "--output-dir", required=True, metavar="DIR", help="Output directory.")
+
+    # --- extract ---
+    p_extract = sub.add_parser("extract", help="Extract a page range from a PDF.")
+    p_extract.add_argument("input", metavar="FILE", help="Input PDF file.")
+    p_extract.add_argument("-s", "--start", type=int, required=True, help="Start page number (1-based).")
+    p_extract.add_argument("-e", "--end", type=int, required=True, help="End page number (1-based).")
+    p_extract.add_argument("-o", "--output", required=True, metavar="FILE", help="Output PDF file.")
+
+    # --- remove ---
+    p_remove = sub.add_parser("remove", help="Remove one or more pages from a PDF.")
+    p_remove.add_argument("input", metavar="FILE", help="Input PDF file.")
+    p_remove.add_argument("-p", "--pages", required=True, metavar="LIST",
+                          help="Comma-separated page numbers/ranges to remove (e.g. '1,3,5-7').")
+    p_remove.add_argument("-o", "--output", required=True, metavar="FILE", help="Output PDF file.")
+
+    # --- img2pdf ---
+    p_img2pdf = sub.add_parser("img2pdf", help="Create a PDF from one or more image files.")
+    p_img2pdf.add_argument("images", nargs="+", metavar="FILE", help="Input image files.")
+    p_img2pdf.add_argument("-o", "--output", required=True, metavar="FILE", help="Output PDF file.")
+
+    # --- pdf2img ---
+    p_pdf2img = sub.add_parser("pdf2img", help="Export PDF pages to raster image files.")
+    p_pdf2img.add_argument("input", metavar="FILE", help="Input PDF file.")
+    p_pdf2img.add_argument("-s", "--start", type=int, default=1, help="Start page number (1-based).")
+    p_pdf2img.add_argument("-e", "--end", type=int, default=None, help="End page number (1-based).")
+    p_pdf2img.add_argument("-d", "--dpi", type=int, default=150, help="Resolution in DPI (50-600).")
+    p_pdf2img.add_argument("-f", "--format", default=".png", choices=list(EXPORT_IMAGE_EXTENSIONS.keys()),
+                           help="Output image format.")
+    p_pdf2img.add_argument("-o", "--output-dir", required=True, metavar="DIR", help="Output directory.")
+
+    args = parser.parse_args()
+
+    try:
+        if args.command == "merge":
+            n = PDFProcessor.merge(args.files, args.output)
+            print(f"Merged {len(args.files)} file(s) ({n} pages) -> {args.output}")
+        elif args.command == "split":
+            n = PDFProcessor.split(args.input, args.output_dir)
+            print(f"Split {n} page(s) -> {args.output_dir}")
+        elif args.command == "extract":
+            n = PDFProcessor.extract(args.input, args.output, args.start, args.end)
+            print(f"Extracted {n} page(s) -> {args.output}")
+        elif args.command == "remove":
+            pages_set = _parse_page_list(args.pages)
+            n = PDFProcessor.remove(args.input, args.output, sorted(pages_set))
+            print(f"Removed {n} page(s) -> {args.output}")
+        elif args.command == "img2pdf":
+            n = PDFProcessor.images_to_pdf(args.images, args.output)
+            print(f"Created PDF from {n} image(s) -> {args.output}")
+                elif args.command == "pdf2img":
+            end_page = args.end
+            if end_page is None:
+                end_page = fitz.open(args.input).page_count
+            dpi = min(max(args.dpi, 50), 600)
+            n = PDFProcessor.pdf_to_images(args.input, args.output_dir, args.start, end_page, dpi, args.format)
+            print(f"Exported {n} page(s) -> {args.output_dir}")
+    except Exception as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        sys.exit(1)
+
+
+def _parse_page_list(spec):
+    """Parse a page/range specification string into a set of 1-based integers."""
+    pages = set()
+    for part in spec.split(","):
+        part = part.strip()
+        if not part:
+            continue
+        if "-" in part:
+            a, b = part.split("-", 1)
+            a, b = int(a.strip()), int(b.strip())
+            lo, hi = sorted((a, b))
+            pages.update(range(lo, hi + 1))
+        else:
+            pages.add(int(part))
+    return pages
+
+
 if __name__ == "__main__":
-    root = tk.Tk()
-    app = PDFManagerApp(root)
-    root.mainloop()
+    # Detect CLI mode: any extra argument besides the script name triggers CLI.
+    if len(sys.argv) > 1:
+        _run_cli()
+    else:
+        root = tk.Tk()
+        app = PDFManagerApp(root)
+        root.mainloop()
 

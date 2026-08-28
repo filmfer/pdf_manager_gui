@@ -123,6 +123,85 @@ python pdf_manager.py
 
 ---
 
+## 🖥️ Command-Line Interface (CLI)
+
+The application now supports a powerful command-line interface. This means you can use the same `simple PDF Manager.exe` (or `python pdf_manager.py`) directly from a terminal like **PowerShell**, **CMD**, or **macOS Terminal**.
+When you pass any command/argument, the app runs in CLI mode. When you launch it with no arguments, it opens the GUI normally.
+
+> **Note for Windows:** The executable name contains spaces (`simple PDF Manager.exe`). When using it in a terminal, you must wrap the path in quotes, e.g. `".\simple PDF Manager.exe" merge ...`.
+
+### General Syntax
+
+```bash
+".\simple PDF Manager.exe" <command> [options]
+# or, if installed from source:
+python pdf_manager.py <command> [options]
+```
+
+### Available Commands
+
+#### `merge` — Merge PDFs
+
+```bash
+".\simple PDF Manager.exe" merge file1.pdf file2.pdf file3.pdf --output merged.pdf
+```
+
+#### `split` — Split into single pages
+
+```bash
+".\simple PDF Manager.exe" split document.pdf --output-dir ./pages
+```
+
+#### `extract` — Extract a page range
+
+```bash
+".\simple PDF Manager.exe" extract document.pdf --start 1 --end 5 --output part.pdf
+```
+
+#### `remove` — Remove pages (supports ranges)
+
+```bash
+".\simple PDF Manager.exe" remove document.pdf --pages 1,3,5-7 --output cleaned.pdf
+```
+
+#### `img2pdf` — Create PDF from images
+
+```bash
+".\simple PDF Manager.exe" img2pdf photo1.png photo2.jpg --output images.pdf
+```
+
+#### `pdf2img` — Export PDF pages to images
+
+```bash
+".\simple PDF Manager.exe" pdf2img document.pdf --start 1 --end 3 --dpi 300 --format .png --output-dir ./images
+```
+
+### CLI Options Summary
+
+| Command | Argument | Required | Description |
+|--------|----------|----------|-------------|
+| `merge` | `files` | ✅ | Input PDF files in order |
+| | `-o, --output` | ✅ | Output merged PDF file |
+| `split` | `input` | ✅ | Input PDF file |
+| | `-o, --output-dir` | ✅ | Output directory for single pages |
+| `extract` | `input` | ✅ | Input PDF file |
+| | `-s, --start` | ✅ | Start page number (1-based) |
+| | `-e, --end` | ✅ | End page number (1-based) |
+| | `-o, --output` | ✅ | Output PDF file |
+| `remove` | `input` | ✅ | Input PDF file |
+| | `-p, --pages` | ✅ | Comma-separated pages/ranges to remove (e.g. `1,3,5-7`) |
+| | `-o, --output` | ✅ | Output PDF file |
+| `img2pdf` | `images` | ✅ | Input image files |
+| | `-o, --output` | ✅ | Output PDF file |
+| `pdf2img` | `input` | ✅ | Input PDF file |
+| | `-s, --start` | ❌ | Start page (default: `1`) |
+| | `-e, --end` | ❌ | End page (default: last page) |
+| | `-d, --dpi` | ❌ | Resolution 50-600 (default: `150`) |
+| | `-f, --format` | ❌ | Image format (default: `.png`) |
+| | `-o, --output-dir` | ✅ | Output directory |
+
+---
+
 ## 🔧 Build from Source (Creating the .exe)
 
 > Requires Python 3.8+ and [PyInstaller](https://pyinstaller.org/)
