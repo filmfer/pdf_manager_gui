@@ -89,23 +89,49 @@ class PDFProcessor:
     implementation."""
 
     @staticmethod
+    def _decrypt_reader(pdf_path):
+        """Abre e desencripta um PDF (assinado ou protegido)."""
+        reader = PdfReader(pdf_path)
+        if reader.is_encrypted:
+            # Tenta senha vazia (padrão para assinaturas digitais)
+            if not reader.decrypt(""):
+                raise ValueError(f"PDF encriptado com senha: {pdf_path}")
+        return reader
+
+    @staticmethod
+    def _strip_signatures(writer):
+        """Remove assinaturas digitais do writer para permitir merge."""
+        # Remove assinaturas de cada página
+        for page in writer.pages:
+            if "/Sig" in page:
+                del page["/Sig"]
+        # Remove AcroForm com SigFlags
+        if "/AcroForm" in writer._root_object:
+            acroform = writer._root_object["/AcroForm"]
+            if "/SigFlags" in acroform:
+                del acroform["/SigFlags"]
+            # Se AcroForm só tinha assinaturas, remove completamente
+            remaining = [k for k in acroform if k not in ("/SigFlags", "/Fields")]
+            if not remaining:
+                del writer._root_object["/AcroForm"]
+
+    @staticmethod
     def merge(input_files, output_file):
         """Merge a list of PDF files into a single ``output_file``."""
         writer = PdfWriter()
         total_pages = 0
         for pdf_file in input_files:
-            reader = PdfReader(pdf_file)
+            reader = PDFProcessor._decrypt_reader(pdf_file)
             total_pages += len(reader.pages)
             writer.append(reader)
-            reader.stream.close()
+        PDFProcessor._strip_signatures(writer)
         writer.write(output_file)
-        writer.stream.close()
         return total_pages
 
     @staticmethod
     def split(input_file, output_dir):
         """Split a PDF into individual single-page PDF files."""
-        reader = PdfReader(input_file)
+        reader = PDFProcessor._decrypt_reader(input_file)
         base_name = Path(input_file).stem
         count = 0
         width = len(str(len(reader.pages)))
@@ -114,29 +140,25 @@ class PDFProcessor:
             writer.append(page)
             output_path = Path(output_dir) / f"{base_name}_page_{str(i).zfill(max(width, 2))}.pdf"
             writer.write(str(output_path))
-            writer.stream.close()
             count += 1
-        reader.stream.close()
         return count
 
     @staticmethod
     def extract(input_file, output_file, start, end):
         """Extract a page range (1-based) from a PDF to a new file."""
-        reader = PdfReader(input_file)
+        reader = PDFProcessor._decrypt_reader(input_file)
         num_pages = len(reader.pages)
         if not (1 <= start <= end <= num_pages):
             raise ValueError(f"Invalid range. PDF has {num_pages} page(s).")
         writer = PdfWriter()
         writer.append(reader.pages[start - 1:end])
         writer.write(output_file)
-        writer.stream.close()
-        reader.stream.close()
         return end - start + 1
 
     @staticmethod
     def remove(input_file, output_file, pages_to_remove):
         """Remove one or more pages (1-based) from a PDF and save to output."""
-        reader = PdfReader(input_file)
+        reader = PDFProcessor._decrypt_reader(input_file)
         num_pages = len(reader.pages)
         indices = set()
         for p in pages_to_remove:
@@ -154,8 +176,6 @@ class PDFProcessor:
             else:
                 count_removed += 1
         writer.write(output_file)
-        writer.stream.close()
-        reader.stream.close()
         return count_removed
 
     @staticmethod
@@ -328,9 +348,10 @@ class PDFManagerApp:
         try:
             pdf_writer = PdfWriter()
             for file_path in files:
-                pdf_reader = PdfReader(file_path)
+                pdf_reader = PDFProcessor._decrypt_reader(file_path)
                 for page in pdf_reader.pages:
                     pdf_writer.add_page(page)
+            PDFProcessor._strip_signatures(pdf_writer)
             with open(output_file, "wb") as f:
                 pdf_writer.write(f)
             messagebox.showinfo(
@@ -351,7 +372,7 @@ class PDFManagerApp:
             return
 
         try:
-            reader = PdfReader(input_file)
+            reader = PDFProcessor._decrypt_reader(input_file)
             num_pages = len(reader.pages)
         except Exception as e:
             messagebox.showerror("Error", f"Failed to read PDF:\n{e}", parent=self.root)
@@ -437,7 +458,7 @@ class PDFManagerApp:
             return
 
         try:
-            reader = PdfReader(input_file)
+            reader = PDFProcessor._decrypt_reader(input_file)
             total_pages = len(reader.pages)
         except Exception as e:
             messagebox.showerror("Error", f"Failed to read PDF:\n{e}", parent=self.root)
@@ -533,7 +554,7 @@ class PDFManagerApp:
             return
 
         try:
-            pdf_reader = PdfReader(input_file)
+            pdf_reader = PDFProcessor._decrypt_reader(input_file)
             base_name = Path(input_file).stem
 
             for i, page in enumerate(pdf_reader.pages, 1):
