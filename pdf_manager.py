@@ -123,7 +123,9 @@ class PDFProcessor:
         for pdf_file in input_files:
             reader = PDFProcessor._decrypt_reader(pdf_file)
             total_pages += len(reader.pages)
-            writer.append(reader)
+            # Add pages individually to avoid encryption metadata issues
+            for page in reader.pages:
+                writer.add_page(page)
         PDFProcessor._strip_signatures(writer)
         writer.write(output_file)
         return total_pages
